@@ -10,6 +10,10 @@
 #include <termios.h> //termios, TCSANOW, ECHO, ICANON
 #include <ctype.h>
 #include <pthread.h>
+#include <ncurses.h>
+
+#define MSG_LEN 16
+
 //client
 
 struct termios menicVstupuTerminalu;
@@ -34,11 +38,11 @@ void * userInput(void * data) {
     int vymaztoto = 0;
     char buffer[256];
     int n;
-    bzero(buffer, 256);
-    while (1) {
+    bzero(buffer, MSG_LEN);
+    while (true) {
 
         if (read(STDIN_FILENO, &c, 1) > 0) {
-            printf("Key pressed: %c\n", c);
+            //printf("Key pressed: %c\n", c);
 
             c = tolower(c);     //zmena na male pismeno
             buffer[0] = c;
@@ -47,7 +51,7 @@ void * userInput(void * data) {
                 buffer[1] = 'E';        //koniec hry (narazenie jedneho z hracov)
                 c = 'r';
             }
-            n = write(sockfd, buffer, strlen(buffer));
+            n = write(sockfd, buffer, MSG_LEN);
             if (n < 0) {
                 perror("Error writing to socket\n");
                 return NULL;
@@ -58,7 +62,7 @@ void * userInput(void * data) {
                 pthread_mutex_unlock(&mut);
             }
 
-            bzero(buffer, 256);
+            bzero(buffer, MSG_LEN);
         }
         pthread_mutex_lock(&mut);
         if (konec) {
@@ -70,13 +74,40 @@ void * userInput(void * data) {
     return NULL;
 }
 
+void * consoleOutput(void * data) {
+    initscr();
+    noecho();
+    curs_set(FALSE);
+    for(int i = 0; i < 10; i++) {
+        for(int j = 0; j < 10; j++) {
+            mvprintw(i, j, "X");
+        }
+    }
+
+    // Refresh the screen to show the matrix
+    refresh();
+
+    // Wait for a bit so you can see the original matrix
+    sleep(2);
+
+    // Change a character and refresh the screen to show the change
+    mvprintw(5, 5, "O");
+    refresh();
+
+    // Wait for a bit so you can see the change
+    sleep(2);
+    endwin();
+    printf("\nkoniec writeu\n");
+    return NULL;
+}
+
 int main(int argc, char *argv[])
 {
     int sockfd, n;
     struct sockaddr_in serv_addr;
     struct hostent* server;
 
-    char buffer[256];
+    char buffer[MSG_LEN];
 
     if (argc < 3)
     {
@@ -117,6 +148,8 @@ int main(int argc, char *argv[])
     pthread_mutex_init(&mut, NULL);
     pthread_t thr;
     pthread_create(&thr, NULL, userInput, &sockfd);
+    //pthread_t tConsole;
+    //pthread_create(&tConsole, NULL, consoleOutput, NULL);
 
 
 
@@ -124,8 +157,8 @@ int main(int argc, char *argv[])
     //fgets(buffer, 255, stdin);
 
     while(true) {
-        bzero(buffer, 256);
-        n = read(sockfd, buffer, 255);
+        bzero(buffer, MSG_LEN);
+        n = read(sockfd, buffer, MSG_LEN);
         if (n < 0) {
             perror("Error reading from socket\n");
             return 6;
@@ -159,6 +192,7 @@ int main(int argc, char *argv[])
     }
 
     pthread_detach(thr);
+    //pthread_detach(tConsole);
     pthread_mutex_destroy(&mut);
     StopNonstopKeyStream();
 
