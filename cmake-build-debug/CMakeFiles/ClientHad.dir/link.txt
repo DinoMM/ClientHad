@@ -1,0 +1,1 @@
+/usr/bin/c++ -g CMakeFiles/ClientHad.dir/main.cpp.o -o ClientHad 
