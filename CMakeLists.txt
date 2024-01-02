@@ -3,7 +3,9 @@ project(ClientHad)
 
 set(CMAKE_CXX_STANDARD 11)
 
-add_executable(ClientHad main.cpp)
+add_executable(ClientHad main.cpp
+        Snake.cpp
+        Snake.h)
 target_link_libraries(ClientHad pthread)
 
 # Link the ncurses library
