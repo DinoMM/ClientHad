@@ -124,11 +124,12 @@ void *Snake::userInput(void *data)
     Snake *client = static_cast<Snake *>(data);
 
     char c;
-    int vymaztoto = 0;
     char buffer[MSG_LEN];
     int n;
 
     bzero(buffer, MSG_LEN);
+
+    char prevDirection = client->direction; // Keep track of the previous direction
 
     while (true)
     {
@@ -136,16 +137,40 @@ void *Snake::userInput(void *data)
         {
             c = tolower(c);
             buffer[0] = c;
-            vymaztoto++;
 
-            switch (c) {
+            switch (c)
+            {
                 case 'w':
+                    if (prevDirection != 's') // Allow only if the previous direction was not 's'
+                    {
+                        pthread_mutex_lock(&client->mutDirection);
+                        client->direction = c;
+                        pthread_mutex_unlock(&client->mutDirection);
+                    }
+                    break;
                 case 'a':
+                    if (prevDirection != 'd') // Allow only if the previous direction was not 'd'
+                    {
+                        pthread_mutex_lock(&client->mutDirection);
+                        client->direction = c;
+                        pthread_mutex_unlock(&client->mutDirection);
+                    }
+                    break;
                 case 's':
+                    if (prevDirection != 'w') // Allow only if the previous direction was not 'w'
+                    {
+                        pthread_mutex_lock(&client->mutDirection);
+                        client->direction = c;
+                        pthread_mutex_unlock(&client->mutDirection);
+                    }
+                    break;
                 case 'd':
-                    pthread_mutex_lock(&client->mutDirection);
-                    client->direction = c;                          //nastavenie pohybu hraca
-                    pthread_mutex_unlock(&client->mutDirection);
+                    if (prevDirection != 'a') // Allow only if the previous direction was not 'a'
+                    {
+                        pthread_mutex_lock(&client->mutDirection);
+                        client->direction = c;
+                        pthread_mutex_unlock(&client->mutDirection);
+                    }
                     break;
                 default:
                     break;
@@ -169,7 +194,7 @@ void *Snake::userInput(void *data)
         }
 
         pthread_mutex_lock(&client->mutColision);
-        if (client->colision)           // kontrola kolizie hraca
+        if (client->colision)
         {
             buffer[1] = 'E';
             break;
@@ -192,6 +217,8 @@ void *Snake::userInput(void *data)
         return NULL;
     }
 
+    // Update the previous direction for the next iteration
+    prevDirection = client->direction;
 
     return NULL;
 }
