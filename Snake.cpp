@@ -59,28 +59,8 @@ void Snake::run()
     pthread_t tConsole;
     pthread_create(&tConsole, NULL, consoleOutput, this);
 
-    while (true)
-    {
-        char buffer[MSG_LEN];
-        bzero(buffer, MSG_LEN);
-        int n = read(sockfd, buffer, MSG_LEN);
 
-        if (n < 0)
-        {
-            perror("Error reading from socket\n");
-            exit(6);
-        }
 
-        processServerResponse(buffer);
-
-        pthread_mutex_lock(&mut);
-        if (konec)
-        {
-            pthread_mutex_unlock(&mut);
-            break;
-        }
-        pthread_mutex_unlock(&mut);
-    }
 
     pthread_detach(thr);
     pthread_join(tConsole, NULL);
@@ -242,4 +222,53 @@ void Snake::processServerResponse(char *buffer)
         default:
             break;
     }
+}
+
+void Snake::moveSnake()
+{
+    // Update the head based on the current direction
+    switch (direction)
+    {
+        case 'w':
+            head.row--;
+            break;
+        case 'a':
+            head.col--;
+            break;
+        case 's':
+            head.row++;
+            break;
+        case 'd':
+            head.col++;
+            break;
+        default:
+            // Handle invalid direction
+            break;
+    }
+
+    // Update the rest of the body if you have one
+    // ...
+
+    // Check for collisions or other game logic here
+    // ...
+
+    // Send the updated position to the server if needed
+    // ...
+}
+
+void Snake::displaySnake()
+{
+    // Clear the previous state of the board
+    // ...
+
+    // Display the snake head
+    // ...
+
+    // Display the snake body
+    // ...
+
+    // Display the board
+    // ...
+
+    refresh();
 }
