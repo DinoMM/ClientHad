@@ -18,8 +18,8 @@
 #include <vector>
 
 #define MSG_LEN 16
-#define SIRKA_PLOCHY 10
-#define VYSKA_PLOCHY 10
+#define SIRKA_PLOCHY 25
+#define VYSKA_PLOCHY 25
 
 class Snake
 {
@@ -31,6 +31,7 @@ public:
     void runSnake();
     void moveSnake();
     void displaySnake();
+    void generateFruit();
 
 private:
     void startNonstopKeyStream();
@@ -57,9 +58,9 @@ private:
     char direction; // 'w' for up, 'a' for left, 's' for down, 'd' for right
     SnakeSegment head;
     std::vector<SnakeSegment> body;
+    SnakeSegment fruit;
     char board[SIRKA_PLOCHY][VYSKA_PLOCHY];
     bool colision;
-    bool fruit;
 };
 
 #endif // SNAKE_H

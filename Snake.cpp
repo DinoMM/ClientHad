@@ -20,8 +20,11 @@ Snake::Snake(const char *hostname, int port) : hostname(hostname), port(port), k
     pthread_mutex_init(&mutColision, NULL);
 
     direction = 'w';    //ini hlavy
-    head.col = 5;
-    head.row = 5;
+    head.col = 15;
+    head.row = 15;
+
+    fruit.col = 0;
+    fruit.row = 0;
 
     colision = false;
 
@@ -146,6 +149,7 @@ void *Snake::userInput(void *data)
                         pthread_mutex_lock(&client->mutDirection);
                         client->direction = c;
                         pthread_mutex_unlock(&client->mutDirection);
+                        prevDirection = client->direction;
                     }
                     break;
                 case 'a':
@@ -154,6 +158,7 @@ void *Snake::userInput(void *data)
                         pthread_mutex_lock(&client->mutDirection);
                         client->direction = c;
                         pthread_mutex_unlock(&client->mutDirection);
+                        prevDirection = client->direction;
                     }
                     break;
                 case 's':
@@ -162,6 +167,8 @@ void *Snake::userInput(void *data)
                         pthread_mutex_lock(&client->mutDirection);
                         client->direction = c;
                         pthread_mutex_unlock(&client->mutDirection);
+                        prevDirection = client->direction;
+                    } else {
                     }
                     break;
                 case 'd':
@@ -170,6 +177,7 @@ void *Snake::userInput(void *data)
                         pthread_mutex_lock(&client->mutDirection);
                         client->direction = c;
                         pthread_mutex_unlock(&client->mutDirection);
+                        prevDirection = client->direction;
                     }
                     break;
                 default:
@@ -208,6 +216,10 @@ void *Snake::userInput(void *data)
             break;
         }
         pthread_mutex_unlock(&client->mut);
+
+
+        // Update the previous direction for the next iteration
+
     }
 
     n = write(client->sockfd, buffer, MSG_LEN);
@@ -217,8 +229,7 @@ void *Snake::userInput(void *data)
         return NULL;
     }
 
-    // Update the previous direction for the next iteration
-    prevDirection = client->direction;
+
 
     return NULL;
 }
@@ -251,7 +262,7 @@ void *Snake::serverInput(void *data) {
 }
 
 void Snake::runSnake() {
-
+    srand(time(NULL) ^ sockfd);
     initscr();      //nastavenie okna pre zobrazenie hry
     noecho();
     curs_set(FALSE);
@@ -259,6 +270,7 @@ void Snake::runSnake() {
     while (true) {
         moveSnake();        //logicky pohyb hada
         displaySnake();     //zobrazenie na terminaly
+
         refresh();
 
         pthread_mutex_lock(&mut);       //kontrola konca hry
@@ -372,6 +384,8 @@ void Snake::displaySnake()
 //        mvprintw(segment.row, segment.col * 2, "o ");
     }
 
+    generateFruit();
+
     // Display the board
     for (int i = 0; i < SIRKA_PLOCHY; i++)
     {
@@ -389,4 +403,16 @@ void Snake::displaySnake()
     }
 
     refresh();
+}
+
+void Snake::generateFruit() {
+    // If there's no fruit on the board, generate and place a new one
+    if (fruit.row == 0 || fruit.col == 0) {
+        do {
+            // Generate random coordinates for the fruit within the game board
+            fruit.row = rand() % (SIRKA_PLOCHY - 2) + 1;
+            fruit.col = rand() % (VYSKA_PLOCHY - 2) + 1;
+        } while (board[fruit.row][fruit.col] != ' '); // Ensure the fruit doesn't spawn on the snake
+    }
+    board[fruit.row][fruit.col] = 'F';  //write fruit on board
 }
