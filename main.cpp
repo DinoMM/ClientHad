@@ -12,8 +12,6 @@ int main(int argc, char *argv[])
 
     Snake client(argv[1], atoi(argv[2]));
     client.run();
-    //dsadaddruha
-    //skusaksoidnoaiwndoanwdoiawondoanwdoaiwndo
 
     return 0;
 }
