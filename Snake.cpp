@@ -71,6 +71,20 @@ Snake::~Snake()
 
 void Snake::run()
 {
+    char buffer[MSG_LEN];
+    bzero(buffer, MSG_LEN);
+    while (true) {
+        int n = read(sockfd, buffer, MSG_LEN);
+        if (n < 0)
+        {
+            perror("Error reading from socket\n");
+            exit(6);
+        }
+        if (buffer[1] == 'S') {
+            break;
+        }
+    }
+
     startNonstopKeyStream();
 
     pthread_t tUserIn;
@@ -190,7 +204,6 @@ void *Snake::serverInput(void *data) {
         char buffer[MSG_LEN];
         bzero(buffer, MSG_LEN);
         int n = read(client->sockfd, buffer, MSG_LEN);
-
         if (n < 0)
         {
             perror("Error reading from socket\n");
