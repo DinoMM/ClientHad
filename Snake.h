@@ -15,8 +15,11 @@
 #include <curses.h>
 #include <termios.h>
 #include <ctype.h>
+#include <vector>
 
 #define MSG_LEN 16
+#define SIRKA_PLOCHY 10
+#define VYSKA_PLOCHY 10
 
 class Snake
 {
@@ -43,6 +46,7 @@ private:
     bool koniec;
     pthread_mutex_t mut;
     pthread_mutex_t mutDirection;
+    pthread_mutex_t mutColision;
 
     struct SnakeSegment
     {
@@ -52,8 +56,10 @@ private:
 
     char direction; // 'w' for up, 'a' for left, 's' for down, 'd' for right
     SnakeSegment head;
-    // You may want to use a dynamic data structure like std::vector for the snake body
-    // std::vector<SnakeSegment> body;
+    std::vector<SnakeSegment> body;
+    char board[SIRKA_PLOCHY][VYSKA_PLOCHY];
+    bool colision;
+    bool fruit;
 };
 
 #endif // SNAKE_H

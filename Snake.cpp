@@ -17,9 +17,19 @@ Snake::Snake(const char *hostname, int port) : hostname(hostname), port(port), k
 {
     pthread_mutex_init(&mut, NULL);
     pthread_mutex_init(&mutDirection, NULL);
-    direction = 'w';
-    head.col = 0;
-    head.row = 0;
+    pthread_mutex_init(&mutColision, NULL);
+
+    direction = 'w';    //ini hlavy
+    head.col = 5;
+    head.row = 5;
+
+    for (int i = 0; i < 2; ++i)
+    {
+        SnakeSegment segment;
+        segment.row = head.row + (i + 1);
+        segment.col = head.col; // Adjust the col position based on the initial length
+        body.push_back(segment);
+    }
 
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -52,6 +62,8 @@ Snake::Snake(const char *hostname, int port) : hostname(hostname), port(port), k
 Snake::~Snake()
 {
     pthread_mutex_destroy(&mut);
+    pthread_mutex_destroy(&mutColision);
+    pthread_mutex_destroy(&mutDirection);
     close(sockfd);
 }
 
@@ -110,11 +122,14 @@ void *Snake::userInput(void *data)
             buffer[0] = c;
             vymaztoto++;
 
-            if (vymaztoto == 5)
+            pthread_mutex_lock(&client->mutColision);
+            if (client->colision)           // kontrola kolizie hraca
             {
                 buffer[1] = 'E';
                 c = 'r';
             }
+            pthread_mutex_unlock(&client->mutColision);
+
 
             switch (c) {
                 case 'w':
@@ -122,6 +137,8 @@ void *Snake::userInput(void *data)
                 case 's':
                 case 'd':
                     pthread_mutex_lock(&client->mutDirection);
+                    client->direction = c;                          //nastavenie pohybu hraca
+                    pthread_mutex_unlock(&client->mutDirection);
                     break;
                 default:
                     break;
@@ -185,61 +202,30 @@ void *Snake::serverInput(void *data) {
     return NULL;
 }
 
-void Snake::runSnake()
-{
+void Snake::runSnake() {
 
-    initscr();
+    initscr();      //nastavenie okna pre zobrazenie hry
     noecho();
     curs_set(FALSE);
 
-    const int rows = 10;
-    const int cols = 10;
-    char board[rows][cols];
-
-    // Initialize the board
-    for (int i = 0; i < rows; i++) {
-        for (int j = 0; j < cols; j++) {
-            board[i][j] = ' ';
-        }
-    }
-    while (true)
-    {
-        clear();
-
-        // Update the board based on server response or game logic
-        // For now, just display a snake head at a fixed position
-        board[5][5] = 'O';
-        // Display the board
-        for (int i = 0; i < rows; i++) {
-            for (int j = 0; j < cols; j++) {
-                if (i == 0 || i == rows - 1 || j == 0 || j == cols - 1) {
-                    // Display border for the edges of the board
-                    mvprintw(i, j * 2, "# ");
-                } else {
-                    if (board[i][j] == ' ') {
-                        mvprintw(i, j * 2, ". ");
-                    } else {
-                        mvprintw(i, j * 2, "%c ", board[i][j]);
-                    }
-                }
-            }
-        }
-
+    while (true) {
+        moveSnake();        //logicky pohyb hada
+        displaySnake();     //zobrazenie na terminaly
         refresh();
-        sleep(2); // Adjust the delay based on your game speed
 
-        pthread_mutex_lock(&mut);
-        if (koniec)
-        {
+        pthread_mutex_lock(&mut);       //kontrola konca hry
+        if (koniec) {
             pthread_mutex_unlock(&mut);
             break;
         }
         pthread_mutex_unlock(&mut);
+
+        usleep(1000 * 1000); // Adjust the delay based on your game speed
     }
 
-    endwin();
+    endwin();       //nastavanie default nastaveni
 
-    printf("\nkoniec writeu\n");
+    printf("\nkoniec zobrazovania snake\n");
 
 }
 
@@ -270,7 +256,8 @@ void Snake::processServerResponse(char *buffer)
 
 void Snake::moveSnake()
 {
-    // Update the head based on the current direction
+    int lastRow = head.row;
+    int lastCol = head.col;
     switch (direction)
     {
         case 'w':
@@ -286,33 +273,68 @@ void Snake::moveSnake()
             head.col++;
             break;
         default:
-            // Handle invalid direction
+            perror("bad direction in moveSnake\n");
             break;
     }
 
-    // Update the rest of the body if you have one
-    // ...
+    if ( head.row <= 0 || head.col <= 0 || head.row >= SIRKA_PLOCHY || head.row >= VYSKA_PLOCHY) {
+        pthread_mutex_lock(&mutColision);
+        colision = true;
+        pthread_mutex_unlock(&mutColision);
+    }
 
-    // Check for collisions or other game logic here
-    // ...
+    //update body
+    int tmpRow;
+    int tmpCol;
+    for (auto &segment : body)
+    {
+        tmpRow = lastRow;
+        tmpCol = lastCol;
+        lastRow = segment.row;
+        lastCol = segment.col;
+        segment.row = tmpRow;
+        segment.col = tmpCol;
 
-    // Send the updated position to the server if needed
-    // ...
+    }
 }
 
 void Snake::displaySnake()
 {
     // Clear the previous state of the board
-    // ...
+    for (int i = 0; i < SIRKA_PLOCHY; i++)
+    {
+        for (int j = 0; j < VYSKA_PLOCHY; j++)
+        {
+            board[i][j] = ' ';
+        }
+    }
 
     // Display the snake head
-    // ...
+    board[head.row][head.col] = 'X';
+//    mvprintw(head.row, head.col * 2, "O ");
 
     // Display the snake body
-    // ...
+    for (const auto &segment : body)
+    {
+        board[segment.row][segment.col] = 'O';
+//        mvprintw(segment.row, segment.col * 2, "o ");
+    }
 
     // Display the board
-    // ...
+    for (int i = 0; i < SIRKA_PLOCHY; i++)
+    {
+        for (int j = 0; j < VYSKA_PLOCHY; j++)
+        {
+            if (i == 0 || i == SIRKA_PLOCHY - 1 || j == 0 || j == VYSKA_PLOCHY - 1)
+            {
+                mvprintw(i, j * 2, "# ");
+            }
+            else
+            {
+                mvprintw(i, j * 2, "%c ", board[i][j]);
+            }
+        }
+    }
 
     refresh();
 }
