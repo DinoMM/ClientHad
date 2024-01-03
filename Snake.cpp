@@ -23,6 +23,8 @@ Snake::Snake(const char *hostname, int port) : hostname(hostname), port(port), k
     head.col = 5;
     head.row = 5;
 
+    colision = false;
+
     for (int i = 0; i < 2; ++i)
     {
         SnakeSegment segment;
@@ -122,15 +124,6 @@ void *Snake::userInput(void *data)
             buffer[0] = c;
             vymaztoto++;
 
-            pthread_mutex_lock(&client->mutColision);
-            if (client->colision)           // kontrola kolizie hraca
-            {
-                buffer[1] = 'E';
-                c = 'r';
-            }
-            pthread_mutex_unlock(&client->mutColision);
-
-
             switch (c) {
                 case 'w':
                 case 'a':
@@ -145,7 +138,6 @@ void *Snake::userInput(void *data)
             }
 
             n = write(client->sockfd, buffer, MSG_LEN);
-
             if (n < 0)
             {
                 perror("Error writing to socket\n");
@@ -162,6 +154,14 @@ void *Snake::userInput(void *data)
             bzero(buffer, MSG_LEN);
         }
 
+        pthread_mutex_lock(&client->mutColision);
+        if (client->colision)           // kontrola kolizie hraca
+        {
+            buffer[1] = 'E';
+            break;
+        }
+        pthread_mutex_unlock(&client->mutColision);
+
         pthread_mutex_lock(&client->mut);
         if (client->koniec)
         {
@@ -170,6 +170,14 @@ void *Snake::userInput(void *data)
         }
         pthread_mutex_unlock(&client->mut);
     }
+
+    n = write(client->sockfd, buffer, MSG_LEN);
+    if (n < 0)
+    {
+        perror("Error writing to socket\n");
+        return NULL;
+    }
+
 
     return NULL;
 }
@@ -277,10 +285,14 @@ void Snake::moveSnake()
             break;
     }
 
-    if ( head.row <= 0 || head.col <= 0 || head.row >= SIRKA_PLOCHY || head.row >= VYSKA_PLOCHY) {
+    if ( head.row <= 0 || head.col <= 0 || head.row >= SIRKA_PLOCHY - 1 || head.col >= VYSKA_PLOCHY - 1) {
         pthread_mutex_lock(&mutColision);
         colision = true;
         pthread_mutex_unlock(&mutColision);
+
+        pthread_mutex_lock(&mut);
+        koniec = true;
+        pthread_mutex_unlock(&mut);
     }
 
     //update body
