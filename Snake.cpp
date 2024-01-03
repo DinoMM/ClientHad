@@ -18,6 +18,9 @@ Snake::Snake(const char *hostname, int port) : hostname(hostname), port(port), k
     pthread_mutex_init(&mut, NULL);
     pthread_mutex_init(&mutDirection, NULL);
     pthread_mutex_init(&mutColision, NULL);
+    pthread_mutex_init(&mutMove, NULL);
+    pthread_cond_init(&conMove, NULL);
+    pthread_cond_init(&conWait, NULL);
 
     direction = 'w';    //ini hlavy
     head.col = 15;
@@ -27,8 +30,9 @@ Snake::Snake(const char *hostname, int port) : hostname(hostname), port(port), k
     fruit.row = 0;
 
     colision = false;
-
-    for (int i = 0; i < 2; ++i)
+    gameIteration = false;
+    score = 0;
+    for (int i = 0; i < 5; ++i)
     {
         SnakeSegment segment;
         segment.row = head.row + (i + 1);
@@ -69,6 +73,8 @@ Snake::~Snake()
     pthread_mutex_destroy(&mut);
     pthread_mutex_destroy(&mutColision);
     pthread_mutex_destroy(&mutDirection);
+    pthread_mutex_destroy(&mutMove);
+    pthread_cond_destroy(&conMove);
     close(sockfd);
 }
 
@@ -132,7 +138,6 @@ void *Snake::userInput(void *data)
 
     bzero(buffer, MSG_LEN);
 
-    char prevDirection = client->direction; // Keep track of the previous direction
 
     while (true)
     {
@@ -144,40 +149,36 @@ void *Snake::userInput(void *data)
             switch (c)
             {
                 case 'w':
-                    if (prevDirection != 's') // Allow only if the previous direction was not 's'
+                    if (client->prevDirection != 's') // Allow only if the previous direction was not 's'
                     {
                         pthread_mutex_lock(&client->mutDirection);
                         client->direction = c;
                         pthread_mutex_unlock(&client->mutDirection);
-                        prevDirection = client->direction;
                     }
                     break;
                 case 'a':
-                    if (prevDirection != 'd') // Allow only if the previous direction was not 'd'
+                    if (client->prevDirection != 'd') // Allow only if the previous direction was not 'd'
                     {
                         pthread_mutex_lock(&client->mutDirection);
                         client->direction = c;
                         pthread_mutex_unlock(&client->mutDirection);
-                        prevDirection = client->direction;
                     }
                     break;
                 case 's':
-                    if (prevDirection != 'w') // Allow only if the previous direction was not 'w'
+                    if (client->prevDirection != 'w') // Allow only if the previous direction was not 'w'
                     {
                         pthread_mutex_lock(&client->mutDirection);
                         client->direction = c;
                         pthread_mutex_unlock(&client->mutDirection);
-                        prevDirection = client->direction;
                     } else {
                     }
                     break;
                 case 'd':
-                    if (prevDirection != 'a') // Allow only if the previous direction was not 'a'
+                    if (client->prevDirection != 'a') // Allow only if the previous direction was not 'a'
                     {
                         pthread_mutex_lock(&client->mutDirection);
                         client->direction = c;
                         pthread_mutex_unlock(&client->mutDirection);
-                        prevDirection = client->direction;
                     }
                     break;
                 default:
@@ -229,8 +230,6 @@ void *Snake::userInput(void *data)
         return NULL;
     }
 
-
-
     return NULL;
 }
 
@@ -262,14 +261,35 @@ void *Snake::serverInput(void *data) {
 }
 
 void Snake::runSnake() {
-    srand(time(NULL) ^ sockfd);
+    //srand(time(NULL) ^ sockfd);
     initscr();      //nastavenie okna pre zobrazenie hry
     noecho();
     curs_set(FALSE);
+    pthread_mutex_lock(&mutDirection);
+    prevDirection = direction;
+    pthread_mutex_unlock(&mutDirection);
 
     while (true) {
         moveSnake();        //logicky pohyb hada
+
+        if (head.row == fruit.row && head.col == fruit.col) {       //kontrola zjedenia jedla
+            fruit.row = 0;
+            fruit.col = 0;
+            score++;
+
+            SnakeSegment newSegment;
+            SnakeSegment & last = body[body.size() - 1];
+            SnakeSegment & preLast = body[body.size() - 2];
+
+            newSegment.row = last.row + (last.row - preLast.row);
+            newSegment.col = last.col + (last.col - preLast.col);
+
+            body.push_back(newSegment);
+        }
+
         displaySnake();     //zobrazenie na terminaly
+
+        displayScore();     //zobrazi aktualne skore
 
         refresh();
 
@@ -280,7 +300,20 @@ void Snake::runSnake() {
         }
         pthread_mutex_unlock(&mut);
 
-        usleep(1000 * 1000); // Adjust the delay based on your game speed
+        pthread_mutex_lock(&mutDirection);
+        prevDirection = direction;
+        pthread_mutex_unlock(&mutDirection);
+
+        //usleep(1000 * 1000); // Adjust the delay based on your game speed
+
+        pthread_mutex_lock(&mutMove);
+        while (!gameIteration) {
+            pthread_cond_wait(&conWait, &mutMove);
+        }
+        gameIteration = false;
+        pthread_cond_signal(&conMove);
+        pthread_mutex_unlock(&mutMove);
+
     }
 
     endwin();       //nastavanie default nastaveni
@@ -308,6 +341,15 @@ void Snake::processServerResponse(char *buffer)
             pthread_mutex_lock(&mut);
             koniec = true;
             pthread_mutex_unlock(&mut);
+            break;
+        case 'M':
+            pthread_mutex_lock(&mutMove);
+            while (gameIteration) {
+                pthread_cond_wait(&conMove, &mutMove);
+            }
+            gameIteration = true;
+            pthread_cond_signal(&conWait);
+            pthread_mutex_unlock(&mutMove);
             break;
         default:
             break;
@@ -359,7 +401,20 @@ void Snake::moveSnake()
         segment.row = tmpRow;
         segment.col = tmpCol;
 
+        if (head.row == segment.row && head.col == segment.col) {
+            pthread_mutex_lock(&mutColision);
+            colision = true;
+            pthread_mutex_unlock(&mutColision);
+
+            pthread_mutex_lock(&mut);
+            koniec = true;
+            pthread_mutex_unlock(&mut);
+        }
+
     }
+
+
+
 }
 
 void Snake::displaySnake()
@@ -403,6 +458,9 @@ void Snake::displaySnake()
     }
 
     refresh();
+}
+void Snake::displayScore() {
+    mvprintw(SIRKA_PLOCHY + 1, 0, "Aktualne skore: %d", score);
 }
 
 void Snake::generateFruit() {

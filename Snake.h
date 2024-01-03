@@ -40,6 +40,7 @@ private:
     static void *consoleOutput(void *data);
     static void *serverInput(void *data);
     void processServerResponse(char *buffer);
+    void displayScore();
 
     const char *hostname;
     int port;
@@ -48,6 +49,9 @@ private:
     pthread_mutex_t mut;
     pthread_mutex_t mutDirection;
     pthread_mutex_t mutColision;
+    pthread_mutex_t mutMove;
+    pthread_cond_t conWait;
+    pthread_cond_t conMove;
 
     struct SnakeSegment
     {
@@ -56,11 +60,14 @@ private:
     };
 
     char direction; // 'w' for up, 'a' for left, 's' for down, 'd' for right
+    char prevDirection;
     SnakeSegment head;
     std::vector<SnakeSegment> body;
     SnakeSegment fruit;
     char board[SIRKA_PLOCHY][VYSKA_PLOCHY];
     bool colision;
+    int score;
+    bool gameIteration;
 };
 
 #endif // SNAKE_H
