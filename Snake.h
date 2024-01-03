@@ -25,6 +25,7 @@ public:
     ~Snake();
 
     void run();
+    void runSnake();
     void moveSnake();
     void displaySnake();
 
@@ -39,8 +40,9 @@ private:
     const char *hostname;
     int port;
     int sockfd;
-    bool konec;
+    bool koniec;
     pthread_mutex_t mut;
+    pthread_mutex_t mutDirection;
 
     struct SnakeSegment
     {

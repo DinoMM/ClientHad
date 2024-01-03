@@ -13,9 +13,14 @@
 #include <termios.h>
 #include <ctype.h>
 
-Snake::Snake(const char *hostname, int port) : hostname(hostname), port(port), konec(false)
+Snake::Snake(const char *hostname, int port) : hostname(hostname), port(port), koniec(false)
 {
     pthread_mutex_init(&mut, NULL);
+    pthread_mutex_init(&mutDirection, NULL);
+    direction = 'w';
+    head.col = 0;
+    head.row = 0;
+
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
     if (sockfd < 0)
@@ -54,16 +59,17 @@ void Snake::run()
 {
     startNonstopKeyStream();
 
-    pthread_t thr;
-    pthread_create(&thr, NULL, userInput, this);
-    pthread_t tConsole;
-    pthread_create(&tConsole, NULL, consoleOutput, this);
+    pthread_t tUserIn;
+    pthread_create(&tUserIn, NULL, userInput, this);
+    pthread_t tServerIn;
+    pthread_create(&tServerIn, NULL, serverInput, this);
 
 
+    runSnake();
 
 
-    pthread_detach(thr);
-    pthread_join(tConsole, NULL);
+    pthread_detach(tUserIn);
+    pthread_detach(tServerIn);
     stopNonstopKeyStream();
 
     printf("Finalny koniec hry\n");
@@ -110,6 +116,17 @@ void *Snake::userInput(void *data)
                 c = 'r';
             }
 
+            switch (c) {
+                case 'w':
+                case 'a':
+                case 's':
+                case 'd':
+                    pthread_mutex_lock(&client->mutDirection);
+                    break;
+                default:
+                    break;
+            }
+
             n = write(client->sockfd, buffer, MSG_LEN);
 
             if (n < 0)
@@ -121,7 +138,7 @@ void *Snake::userInput(void *data)
             if (c == 'r')
             {
                 pthread_mutex_lock(&client->mut);
-                client->konec = true;
+                client->koniec = true;
                 pthread_mutex_unlock(&client->mut);
             }
 
@@ -129,7 +146,7 @@ void *Snake::userInput(void *data)
         }
 
         pthread_mutex_lock(&client->mut);
-        if (client->konec)
+        if (client->koniec)
         {
             pthread_mutex_unlock(&client->mut);
             break;
@@ -140,9 +157,36 @@ void *Snake::userInput(void *data)
     return NULL;
 }
 
-void *Snake::consoleOutput(void *data)
-{
+void *Snake::serverInput(void *data) {
     Snake *client = static_cast<Snake *>(data);
+
+    while (true)
+    {
+        char buffer[MSG_LEN];
+        bzero(buffer, MSG_LEN);
+        int n = read(client->sockfd, buffer, MSG_LEN);
+
+        if (n < 0)
+        {
+            perror("Error reading from socket\n");
+            exit(6);
+        }
+
+        client->processServerResponse(buffer);
+
+        pthread_mutex_lock(&client->mut);
+        if (client->koniec)
+        {
+            pthread_mutex_unlock(&client->mut);
+            break;
+        }
+        pthread_mutex_unlock(&client->mut);
+    }
+    return NULL;
+}
+
+void Snake::runSnake()
+{
 
     initscr();
     noecho();
@@ -180,23 +224,23 @@ void *Snake::consoleOutput(void *data)
                 }
             }
         }
-                refresh();
+
+        refresh();
         sleep(2); // Adjust the delay based on your game speed
 
-        pthread_mutex_lock(&client->mut);
-        if (client->konec)
+        pthread_mutex_lock(&mut);
+        if (koniec)
         {
-            pthread_mutex_unlock(&client->mut);
+            pthread_mutex_unlock(&mut);
             break;
         }
-        pthread_mutex_unlock(&client->mut);
+        pthread_mutex_unlock(&mut);
     }
 
     endwin();
 
     printf("\nkoniec writeu\n");
 
-    return NULL;
 }
 
 void Snake::processServerResponse(char *buffer)
@@ -216,7 +260,7 @@ void Snake::processServerResponse(char *buffer)
     {
         case 'E':
             pthread_mutex_lock(&mut);
-            konec = true;
+            koniec = true;
             pthread_mutex_unlock(&mut);
             break;
         default:
