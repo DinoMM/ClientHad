@@ -10,12 +10,13 @@
 #include <netdb.h>
 #include <stdio.h>
 #include <cstdlib>
-#include <string.h>
+#include <cstring>
 #include <unistd.h>
 #include <curses.h>
 #include <termios.h>
 #include <ctype.h>
 #include <vector>
+#include <string>
 
 #define MSG_LEN 16
 #define SIRKA_PLOCHY 10

@@ -168,10 +168,33 @@ void Snake::run()
 
         }
     }
-    printf("Vysledky su: Hrac1: %d\n", score);
-    printf("             Hrac2: %d\n", scoreEnemy);
+    std::string slovickoHrac1 = " ";
+    std::string slovickoHrac2 = " ";
+    if (score == 0 ||score >= 5) {
+        slovickoHrac1 = "bodov";
+    } else if (score == 1) {
+        slovickoHrac1 = "bod";
+    } else if (score > 1 && score < 5) {
+        slovickoHrac1 = "body";
+    }
 
-    printf("Finalny koniec hry\n");
+    if (scoreEnemy == 0 || scoreEnemy >= 5) {
+        slovickoHrac2 = "bodov";
+    } else if (scoreEnemy == 1) {
+        slovickoHrac2 = "bod";
+    } else if (scoreEnemy > 1 && scoreEnemy < 5) {
+        slovickoHrac2 = "body";
+    }
+
+    printf("\n---------------------\nScore\nAktualny hrac: %d %s\nSuper:         %d %s\n---------------------\n", score, slovickoHrac1.c_str(), scoreEnemy, slovickoHrac2.c_str());
+    if (score > scoreEnemy) {
+        printf("Vyhravas ty !!\n");
+    } else if (score < scoreEnemy) {
+        printf("Vyhrava super !!\n");
+    } else {
+        printf("Remiza !!\n");
+    }
+    printf("----------KONIEC HRY-----------\n\n");
 }
 
 void Snake::startNonstopKeyStream()
