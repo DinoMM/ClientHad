@@ -23,8 +23,8 @@ Snake::Snake(const char *hostname, int port) : hostname(hostname), port(port), k
     pthread_cond_init(&conWait, NULL);
 
     direction = 'w';    //ini hlavy
-    head.col = 15;
-    head.row = 15;
+    head.col = 5;
+    head.row = 5;
 
     fruit.col = 0;
     fruit.row = 0;
@@ -32,7 +32,7 @@ Snake::Snake(const char *hostname, int port) : hostname(hostname), port(port), k
     colision = false;
     gameIteration = false;
     score = 0;
-    for (int i = 0; i < 5; ++i)
+    for (int i = 0; i < 4; ++i)
     {
         SnakeSegment segment;
         segment.row = head.row + (i + 1);
@@ -96,6 +96,8 @@ void Snake::run()
 
     startNonstopKeyStream();
 
+    pthread_mutex_init(&mutTEst, NULL);
+
     pthread_t tUserIn;
     pthread_create(&tUserIn, NULL, userInput, this);
     pthread_t tServerIn;
@@ -106,8 +108,68 @@ void Snake::run()
 
 
     pthread_detach(tUserIn);
-    pthread_detach(tServerIn);
     stopNonstopKeyStream();
+    printf("Pred Koncom server\n");
+    pthread_join(tServerIn, NULL);
+
+    //Vyhodnotenie vysledkov
+    printf("Pockaj kym dohra druhy hrac.\n");
+
+
+
+        bool run = true;
+        while(run) {        //poslanie score na server
+            printf("Poslal som score\n");
+            bzero(buffer, MSG_LEN);
+            buffer[1] = 'H';
+            buffer[3] = '0' + score;
+            int n = write(sockfd, buffer, MSG_LEN);     //poslanie
+            if (n < 0) {
+                perror("Error writing to socket\n");
+                return;
+            }
+
+            bzero(buffer, MSG_LEN);
+            n = read(sockfd, buffer, MSG_LEN);      //cakanie na potvrdenie
+            printf("Ziskal som potvrdenie ze server dostal moje score\n");
+            if (n < 0) {
+                perror("Error reading from socket\n");
+                exit(6);
+            }
+            if (buffer[1] == 'Y') {
+                run = false;
+                printf("ukoncujem cyklus\n");
+            }
+
+        }
+
+
+
+    int scoreEnemy = -1;        //cakanie na ziskanie score od servra druheho hraca
+    run = true;
+    while(run) {
+        bzero(buffer, MSG_LEN);
+        int n = read(sockfd, buffer, MSG_LEN);
+        if (n < 0) {
+            perror("Error reading from socket\n");
+            exit(6);
+        }
+        switch (buffer[1]) {
+            case 'V':
+                    if (buffer[3] != '\0') {
+                        scoreEnemy = buffer[3] - '0';
+                        run = false;
+                    } else {
+                        printf("Zle");
+                        perror("Bad result");
+                    }
+                break;
+            default: break;
+
+        }
+    }
+    printf("Vysledky su: Hrac1: %d\n", score);
+    printf("             Hrac2: %d\n", scoreEnemy);
 
     printf("Finalny koniec hry\n");
 }
@@ -236,13 +298,11 @@ void *Snake::userInput(void *data)
 void *Snake::serverInput(void *data) {
     Snake *client = static_cast<Snake *>(data);
 
-    while (true)
-    {
+    while (true) {
         char buffer[MSG_LEN];
         bzero(buffer, MSG_LEN);
         int n = read(client->sockfd, buffer, MSG_LEN);
-        if (n < 0)
-        {
+        if (n < 0) {
             perror("Error reading from socket\n");
             exit(6);
         }
@@ -250,8 +310,7 @@ void *Snake::serverInput(void *data) {
         client->processServerResponse(buffer);
 
         pthread_mutex_lock(&client->mut);
-        if (client->koniec)
-        {
+        if (client->koniec) {
             pthread_mutex_unlock(&client->mut);
             break;
         }
@@ -304,15 +363,15 @@ void Snake::runSnake() {
         prevDirection = direction;
         pthread_mutex_unlock(&mutDirection);
 
-        //usleep(1000 * 1000); // Adjust the delay based on your game speed
+        usleep(1000 * 1000); // Adjust the delay based on your game speed
 
-        pthread_mutex_lock(&mutMove);
-        while (!gameIteration) {
-            pthread_cond_wait(&conWait, &mutMove);
-        }
-        gameIteration = false;
-        pthread_cond_signal(&conMove);
-        pthread_mutex_unlock(&mutMove);
+//        pthread_mutex_lock(&mutMove);
+//        while (!gameIteration) {
+//            pthread_cond_wait(&conWait, &mutMove);
+//        }
+//        gameIteration = false;
+//        pthread_cond_signal(&conMove);
+//        pthread_mutex_unlock(&mutMove);
 
     }
 

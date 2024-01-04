@@ -9,7 +9,7 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <stdio.h>
-#include <stdlib.h>
+#include <cstdlib>
 #include <string.h>
 #include <unistd.h>
 #include <curses.h>
@@ -18,8 +18,8 @@
 #include <vector>
 
 #define MSG_LEN 16
-#define SIRKA_PLOCHY 25
-#define VYSKA_PLOCHY 25
+#define SIRKA_PLOCHY 10
+#define VYSKA_PLOCHY 10
 
 class Snake
 {
@@ -52,6 +52,9 @@ private:
     pthread_mutex_t mutMove;
     pthread_cond_t conWait;
     pthread_cond_t conMove;
+
+    pthread_mutex_t mutTEst;
+    bool daco = false;
 
     struct SnakeSegment
     {
