@@ -373,6 +373,7 @@ void Snake::runSnake() {
 
     while (true) {
         moveSnake();        //logicky pohyb hada
+        moveSnakeEnemy();
 
         if (head.row == fruit.row && head.col == fruit.col) {       //kontrola zjedenia jedla
             fruit.row = 0;
@@ -435,6 +436,9 @@ void Snake::processServerResponse(char *buffer)
         case 'a':
         case 's':
         case 'd':
+            pthread_mutex_lock(&mutDirectionEnemy);
+            directionEnemy = buffer[2];
+            pthread_mutex_unlock(&mutDirectionEnemy);
             break;
         default:
             break;
@@ -575,14 +579,14 @@ void Snake::moveSnakeEnemy()
     //update body
     int tmpRow;
     int tmpCol;
-    for (auto &segment : bodyEnemy)
+    for (auto &policko : bodyEnemy)
     {
         tmpRow = lastRow;
         tmpCol = lastCol;
-        lastRow = segment.row;
-        lastCol = segment.col;
-        segment.row = tmpRow;
-        segment.col = tmpCol;
+        lastRow = policko.row;
+        lastCol = policko.col;
+        policko.row = tmpRow;
+        policko.col = tmpCol;
 
 //        if (head.row == segment.row && head.col == segment.col) {
 //            pthread_mutex_lock(&mutColision);
@@ -651,17 +655,17 @@ void Snake::displaySnakeEnemy()
     }
 
     // Display the snake head
-    boardEnemy[headEnemy.row][headEnemy.col] = 'X';
+    boardEnemy[headEnemy.row][headEnemy.col + 1] = 'X';
 //    mvprintw(head.row, head.col * 2, "O ");
 
     // Display the snake body
     for (const auto &policko : bodyEnemy)
     {
-        boardEnemy[policko.row][policko.col] = 'O';
+        boardEnemy[policko.row][policko.col +1] = 'O';
 //        mvprintw(segment.row, segment.col * 2, "o ");
     }
 
-    //generateFruitEnemy();
+    generateFruitEnemy();
 
     // Display the board
     for (int i = 0; i < SIRKA_PLOCHY; i++)
@@ -686,25 +690,25 @@ void Snake::displayScore() {
 }
 
 void Snake::generateFruit() {
-    // If there's no fruit on the board, generate and place a new one
+    // Ak sa nenachadza ziadne ovocie na boarde tak generujeme
     if (fruit.row == 0 || fruit.col == 0) {
         do {
-            // Generate random coordinates for the fruit within the game board
+            // random pozicia
             fruit.row = rand() % (SIRKA_PLOCHY - 2) + 1;
             fruit.col = rand() % (VYSKA_PLOCHY - 2) + 1;
-        } while (board[fruit.row][fruit.col] != ' '); // Ensure the fruit doesn't spawn on the snake
+        } while (board[fruit.row][fruit.col] != ' '); // Zabezpecujeme aby ovocie nebolo na policku kde je had
     }
-    board[fruit.row][fruit.col] = 'F';  //write fruit on board
+    board[fruit.row][fruit.col] = 'F';  //nakreslit ovocie na boardu
 }
 
 void Snake::generateFruitEnemy() {
-    // If there's no fruit on the board, generate and place a new one
+    // Ak sa nenachadza ziadne ovocie na boarde tak generujeme
     if (fruitEnemy.row == 0 || fruitEnemy.col == 0) {
         do {
-            // Generate random coordinates for the fruit within the game board
+            // random pozicia
             fruitEnemy.row = rand() % (SIRKA_PLOCHY - 2) + 1;
             fruitEnemy.col = rand() % (VYSKA_PLOCHY - 2) + 1;
-        } while (boardEnemy[fruitEnemy.row][fruitEnemy.col] != ' '); // Ensure the fruit doesn't spawn on the snake
+        } while (boardEnemy[fruitEnemy.row][fruitEnemy.col] != ' ');// Zabezpecujeme aby ovocie nebolo na policku kde je had
     }
-    boardEnemy[fruitEnemy.row][fruitEnemy.col] = 'F';  //write fruit on board
+    boardEnemy[fruitEnemy.row][fruitEnemy.col + 1] = 'F';
 }

@@ -42,7 +42,7 @@ private:
     void startNonstopKeyStream();
     void stopNonstopKeyStream();
     static void *userInput(void *data);
-    static void *consoleOutput(void *data);
+    //static void *consoleOutput(void *data);
     static void *serverInput(void *data);
     void processServerResponse(char *buffer);
     void displayScore();
