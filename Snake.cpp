@@ -13,9 +13,6 @@
 #include <termios.h>
 #include <ctype.h>
 
-int vymaz = 0;
-int vymaz2 = 0;
-
 Snake::Snake(const char *hostname, int port) : hostname(hostname), port(port), koniec(false)
 {
     pthread_mutex_init(&mut, NULL);
@@ -144,31 +141,31 @@ void Snake::run()
 
 
 
-        bool run = true;
-        while(run) {        //poslanie score na server
-            printf("Poslal som score\n");
-            bzero(buffer, MSG_LEN);
-            buffer[1] = 'H';
-            buffer[3] = '0' + score;
-            int n = write(sockfd, buffer, MSG_LEN);     //poslanie
-            if (n < 0) {
-                perror("Error writing to socket\n");
-                return;
-            }
-
-            bzero(buffer, MSG_LEN);
-            n = read(sockfd, buffer, MSG_LEN);      //cakanie na potvrdenie
-            printf("Ziskal som potvrdenie ze server dostal moje score\n");
-            if (n < 0) {
-                perror("Error reading from socket\n");
-                exit(6);
-            }
-            if (buffer[1] == 'Y') {
-                run = false;
-                printf("ukoncujem cyklus\n");
-            }
-
+    bool run = true;
+    while(run) {        //poslanie score na server
+        printf("Poslal som score\n");
+        bzero(buffer, MSG_LEN);
+        buffer[1] = 'H';
+        buffer[3] = '0' + score;
+        int n = write(sockfd, buffer, MSG_LEN);     //poslanie
+        if (n < 0) {
+            perror("Error writing to socket\n");
+            return;
         }
+
+        bzero(buffer, MSG_LEN);
+        n = read(sockfd, buffer, MSG_LEN);      //cakanie na potvrdenie
+        printf("Ziskal som potvrdenie ze server dostal moje score\n");
+        if (n < 0) {
+            perror("Error reading from socket\n");
+            exit(6);
+        }
+        if (buffer[1] == 'Y') {
+            run = false;
+            printf("ukoncujem cyklus\n");
+        }
+
+    }
 
 
 
@@ -183,13 +180,13 @@ void Snake::run()
         }
         switch (buffer[1]) {
             case 'V':
-                    if (buffer[3] != '\0') {
-                        scoreEnemy = buffer[3] - '0';
-                        run = false;
-                    } else {
-                        printf("Zle");
-                        perror("Bad result");
-                    }
+                if (buffer[3] != '\0') {
+                    scoreEnemy = buffer[3] - '0';
+                    run = false;
+                } else {
+                    printf("Zle");
+                    perror("Bad result");
+                }
                 break;
             default: break;
 
@@ -261,7 +258,7 @@ void *Snake::userInput(void *data)
             switch (c)
             {
                 case 'w':
-                    if (client->prevDirection != 's') // Allow only if the previous direction was not 's'
+                    if (client->prevDirection != 's') // Iba ak prevDirection nebola 's'
                     {
                         pthread_mutex_lock(&client->mutDirection);
                         client->direction = c;
@@ -269,7 +266,7 @@ void *Snake::userInput(void *data)
                     }
                     break;
                 case 'a':
-                    if (client->prevDirection != 'd') // Allow only if the previous direction was not 'd'
+                    if (client->prevDirection != 'd') // Iba ak prevDirection nebola  'd'
                     {
                         pthread_mutex_lock(&client->mutDirection);
                         client->direction = c;
@@ -277,7 +274,7 @@ void *Snake::userInput(void *data)
                     }
                     break;
                 case 's':
-                    if (client->prevDirection != 'w') // Allow only if the previous direction was not 'w'
+                    if (client->prevDirection != 'w') // Iba ak prevDirection nebola  'w'
                     {
                         pthread_mutex_lock(&client->mutDirection);
                         client->direction = c;
@@ -286,7 +283,7 @@ void *Snake::userInput(void *data)
                     }
                     break;
                 case 'd':
-                    if (client->prevDirection != 'a') // Allow only if the previous direction was not 'a'
+                    if (client->prevDirection != 'a') // Iba ak prevDirection nebola  'a'
                     {
                         pthread_mutex_lock(&client->mutDirection);
                         client->direction = c;
@@ -313,15 +310,7 @@ void *Snake::userInput(void *data)
 
             bzero(buffer, MSG_LEN);
         }
-        /*
-        pthread_mutex_lock(&client->mutColision);
-        if (client->colision)
-        {
-            buffer[1] = 'E';
-            break;
-        }
-        pthread_mutex_unlock(&client->mutColision);
-*/
+
         pthread_mutex_lock(&client->mut);
         if (client->koniec)
         {
@@ -329,19 +318,8 @@ void *Snake::userInput(void *data)
             break;
         }
         pthread_mutex_unlock(&client->mut);
-
-
-        // Update the previous direction for the next iteration
-
     }
-/*
-    n = write(client->sockfd, buffer, MSG_LEN);
-    if (n < 0)
-    {
-        perror("Error writing to socket\n");
-        return NULL;
-    }
-*/
+
     return NULL;
 }
 
@@ -369,7 +347,8 @@ void *Snake::serverInput(void *data) {
     return NULL;
 }
 
-void Snake::runSnake() {
+void Snake::
+runSnake() {
     //srand(time(NULL) ^ sockfd);
     initscr();      //nastavenie okna pre zobrazenie hry
     noecho();
@@ -436,13 +415,12 @@ void Snake::runSnake() {
         prevDirection = direction;
         pthread_mutex_unlock(&mutDirection);
 
-        //usleep(1000 * 1000); // Adjust the delay based on your game speed
+        //usleep(1000 * 1000);
 
         pthread_mutex_lock(&mutMove);       //pohyb
         while (!gameIteration) {
             pthread_cond_wait(&conWait, &mutMove);
         }
-        //printf("MoveM %d\n", ++vymaz2);
         gameIteration = false;
         pthread_cond_signal(&conMove);
         pthread_mutex_unlock(&mutMove);
@@ -500,7 +478,7 @@ void Snake::processServerResponse(char *buffer)
 //            pthread_cond_signal(&conWait);
 //            pthread_mutex_unlock(&mutMove);
             break;
-            default:
+        default:
             break;
     }
     switch (buffer[5])
@@ -510,7 +488,6 @@ void Snake::processServerResponse(char *buffer)
             while (gameIteration) {
                 pthread_cond_wait(&conMove, &mutMove);
             }
-            //printf("SignalM %d\n", ++vymaz);
             gameIteration = true;
             pthread_cond_signal(&conWait);
             pthread_mutex_unlock(&mutMove);
@@ -646,7 +623,7 @@ void Snake::moveSnakeEnemy()
 
 void Snake::displaySnake()
 {
-    // Clear the previous state of the board
+    // Precistenie boardy
     for (int i = 0; i < SIRKA_PLOCHY; i++)
     {
         for (int j = 0; j < VYSKA_PLOCHY; j++)
@@ -655,11 +632,11 @@ void Snake::displaySnake()
         }
     }
 
-    // Display the snake head
+    // Zobrazenie hlavy hada
     board[head.row][head.col] = 'X';
 //    mvprintw(head.row, head.col * 2, "O ");
 
-    // Display the snake body
+    // Zobrazenie tela hada
     for (const auto &policko : body)
     {
         board[policko.row][policko.col] = 'O';
@@ -668,7 +645,7 @@ void Snake::displaySnake()
 
     generateFruit();
 
-    // Display the board
+    // Zobrazenie boardy
     for (int i = 0; i < SIRKA_PLOCHY; i++)
     {
         for (int j = 0; j < VYSKA_PLOCHY; j++)
@@ -689,7 +666,7 @@ void Snake::displaySnake()
 
 void Snake::displaySnakeEnemy()
 {
-    // Clear the previous state of the board
+    // Precistenie enemy boardy
     for (int i = 0 ; i < SIRKA_PLOCHY; i++)
     {
         for (int j = VYSKA_PLOCHY + 1; j < VYSKA_PLOCHY * 2 + 1; j++)
@@ -698,11 +675,11 @@ void Snake::displaySnakeEnemy()
         }
     }
 
-    // Display the snake head
+    // Zobrazenie enemy hlavy
     boardEnemy[headEnemy.row][headEnemy.col + 1] = 'X';
 //    mvprintw(head.row, head.col * 2, "O ");
 
-    // Display the snake body
+    // Zobrazenie enemy tela
     for (const auto &policko : bodyEnemy)
     {
         boardEnemy[policko.row][policko.col +1] = 'O';
@@ -711,7 +688,7 @@ void Snake::displaySnakeEnemy()
 
     generateFruitEnemy();
 
-    // Display the board
+    // Zobrazenie enemy boardy
     for (int i = 0; i < SIRKA_PLOCHY; i++)
     {
         for (int j = VYSKA_PLOCHY + 1; j < VYSKA_PLOCHY * 2 + 1; j++)

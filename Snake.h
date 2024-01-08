@@ -3,6 +3,7 @@
 #ifndef SNAKE_H
 #define SNAKE_H
 
+
 #include <pthread.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -62,7 +63,7 @@ private:
     pthread_cond_t conMove;
 
     pthread_mutex_t mutTEst;
-    bool daco = false; // ?
+    bool daco = false; 
 
     struct Policko
     {
@@ -70,7 +71,7 @@ private:
         int col;
     };
 
-    char direction; // 'w' for up, 'a' for left, 's' for down, 'd' for right
+    char direction;  // 'w' hore, 'a' do lava 's' dole, 'd' do prava
     char prevDirection;
     Policko head;
     std::vector<Policko> body;
@@ -80,7 +81,7 @@ private:
     int score;
     bool gameIteration;
 
-    char directionEnemy; // 'w' for up, 'a' for left, 's' for down, 'd' for right
+    char directionEnemy;  // 'w' hore, 'a' do lava 's' dole, 'd' do prava
     Policko headEnemy;
     std::vector<Policko> bodyEnemy;
     Policko fruitEnemy;
