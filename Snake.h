@@ -22,6 +22,7 @@
 #define SIRKA_PLOCHY 10
 #define VYSKA_PLOCHY 10
 
+
 class Snake
 {
 public:
@@ -31,8 +32,11 @@ public:
     void run();
     void runSnake();
     void moveSnake();
+    void moveSnakeEnemy();
     void displaySnake();
+    void displaySnakeEnemy();
     void generateFruit();
+    void generateFruitEnemy();
 
 private:
     void startNonstopKeyStream();
@@ -49,15 +53,16 @@ private:
     bool koniec;
     pthread_mutex_t mut;
     pthread_mutex_t mutDirection;
+    pthread_mutex_t mutDirectionEnemy;
     pthread_mutex_t mutColision;
     pthread_mutex_t mutMove;
     pthread_cond_t conWait;
     pthread_cond_t conMove;
 
     pthread_mutex_t mutTEst;
-    bool daco = false;
+    bool daco = false; // ?
 
-    struct SnakeSegment
+    struct Policko
     {
         int row;
         int col;
@@ -65,13 +70,19 @@ private:
 
     char direction; // 'w' for up, 'a' for left, 's' for down, 'd' for right
     char prevDirection;
-    SnakeSegment head;
-    std::vector<SnakeSegment> body;
-    SnakeSegment fruit;
+    Policko head;
+    std::vector<Policko> body;
+    Policko fruit;
     char board[SIRKA_PLOCHY][VYSKA_PLOCHY];
-    bool colision;
+    bool colision; // ?
     int score;
     bool gameIteration;
+
+    char directionEnemy; // 'w' for up, 'a' for left, 's' for down, 'd' for right
+    Policko headEnemy;
+    std::vector<Policko> bodyEnemy;
+    Policko fruitEnemy;
+    char boardEnemy[SIRKA_PLOCHY][VYSKA_PLOCHY];
 };
 
 #endif // SNAKE_H

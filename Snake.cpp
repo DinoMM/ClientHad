@@ -20,29 +20,45 @@ Snake::Snake(const char *hostname, int port) : hostname(hostname), port(port), k
 {
     pthread_mutex_init(&mut, NULL);
     pthread_mutex_init(&mutDirection, NULL);
+    pthread_mutex_init(&mutDirectionEnemy, NULL);
     pthread_mutex_init(&mutColision, NULL);
     pthread_mutex_init(&mutMove, NULL);
     pthread_cond_init(&conMove, NULL);
     pthread_cond_init(&conWait, NULL);
 
-    direction = 'w';    //ini hlavy
+    //AKTUALNY HRAC
+    direction = 'w';    //ini hlavy hraca
     head.col = 5;
     head.row = 5;
-
     fruit.col = 0;
     fruit.row = 0;
+    for (int i = 0; i < 4; ++i) //ini tela hraca
+    {
+        Policko policko;
+        policko.row = head.row + (i + 1);
+        policko.col = head.col;
+        body.push_back(policko);
+    }
+
+    //NEPRIATEL
+    directionEnemy = 'w';    //ini hlavy nepriatela
+    headEnemy.col = 5;
+    headEnemy.row = 5;
+    fruitEnemy.col = 0;
+    fruitEnemy.row = 0;
+    for (int i = 0; i < 4; ++i) //ini tela nepriatela
+    {
+        Policko polickoEnemy;
+        polickoEnemy.row = headEnemy.row + (i + 1);
+        polickoEnemy.col = headEnemy.col;
+        bodyEnemy.push_back(polickoEnemy);
+    }
 
     colision = false;
     gameIteration = false;
     score = 0;
-    for (int i = 0; i < 4; ++i)
-    {
-        SnakeSegment segment;
-        segment.row = head.row + (i + 1);
-        segment.col = head.col; // Adjust the col position based on the initial length
-        body.push_back(segment);
-    }
 
+    //Pripojenie na server
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
     if (sockfd < 0)
@@ -76,6 +92,7 @@ Snake::~Snake()
     pthread_mutex_destroy(&mut);
     pthread_mutex_destroy(&mutColision);
     pthread_mutex_destroy(&mutDirection);
+    pthread_mutex_destroy(&mutDirectionEnemy);
     pthread_mutex_destroy(&mutMove);
     pthread_cond_destroy(&conMove);
     close(sockfd);
@@ -99,7 +116,7 @@ void Snake::run()
 
     startNonstopKeyStream();
 
-    pthread_mutex_init(&mutTEst, NULL);
+    pthread_mutex_init(&mutTEst, NULL);     //?
 
     pthread_t tUserIn;
     pthread_create(&tUserIn, NULL, userInput, this);
@@ -362,9 +379,9 @@ void Snake::runSnake() {
             fruit.col = 0;
             score++;
 
-            SnakeSegment newSegment;
-            SnakeSegment & last = body[body.size() - 1];
-            SnakeSegment & preLast = body[body.size() - 2];
+            Policko newSegment;
+            Policko & last = body[body.size() - 1];
+            Policko & preLast = body[body.size() - 2];
 
             newSegment.row = last.row + (last.row - preLast.row);
             newSegment.col = last.col + (last.col - preLast.col);
@@ -372,7 +389,8 @@ void Snake::runSnake() {
             body.push_back(newSegment);
         }
 
-        displaySnake();     //zobrazenie na terminaly
+        displaySnake();     //zobrazenie na terminaly aktualny hrac
+        displaySnakeEnemy();//zobrazenie na terminaly enemy
 
         displayScore();     //zobrazi aktualne skore
 
@@ -519,11 +537,63 @@ void Snake::moveSnake()
             koniec = true;
             pthread_mutex_unlock(&mut);
         }
-
+    }
+}
+void Snake::moveSnakeEnemy()
+{
+    int lastRow = headEnemy.row;
+    int lastCol = headEnemy.col;
+    switch (directionEnemy)
+    {
+        case 'w':
+            headEnemy.row--;
+            break;
+        case 'a':
+            headEnemy.col--;
+            break;
+        case 's':
+            headEnemy.row++;
+            break;
+        case 'd':
+            headEnemy.col++;
+            break;
+        default:
+            perror("bad direction in moveSnake\n");
+            break;
     }
 
+//    if ( headEnemy.row <= 0 || headEnemy.col <= 0 || headEnemy.row >= SIRKA_PLOCHY - 1 || headEnemy.col >= VYSKA_PLOCHY - 1) {
+//        pthread_mutex_lock(&mutColision);
+//        colision = true;
+//        pthread_mutex_unlock(&mutColision);
+//
+//        pthread_mutex_lock(&mut);
+//        koniec = true;
+//        pthread_mutex_unlock(&mut);
+//    }
 
+    //update body
+    int tmpRow;
+    int tmpCol;
+    for (auto &segment : bodyEnemy)
+    {
+        tmpRow = lastRow;
+        tmpCol = lastCol;
+        lastRow = segment.row;
+        lastCol = segment.col;
+        segment.row = tmpRow;
+        segment.col = tmpCol;
 
+//        if (head.row == segment.row && head.col == segment.col) {
+//            pthread_mutex_lock(&mutColision);
+//            colision = true;
+//            pthread_mutex_unlock(&mutColision);
+//
+//            pthread_mutex_lock(&mut);
+//            koniec = true;
+//            pthread_mutex_unlock(&mut);
+//        }
+    }
 }
 
 void Snake::displaySnake()
@@ -542,9 +612,9 @@ void Snake::displaySnake()
 //    mvprintw(head.row, head.col * 2, "O ");
 
     // Display the snake body
-    for (const auto &segment : body)
+    for (const auto &policko : body)
     {
-        board[segment.row][segment.col] = 'O';
+        board[policko.row][policko.col] = 'O';
 //        mvprintw(segment.row, segment.col * 2, "o ");
     }
 
@@ -568,6 +638,49 @@ void Snake::displaySnake()
 
     refresh();
 }
+
+void Snake::displaySnakeEnemy()
+{
+    // Clear the previous state of the board
+    for (int i = 0 ; i < SIRKA_PLOCHY; i++)
+    {
+        for (int j = VYSKA_PLOCHY + 1; j < VYSKA_PLOCHY * 2 + 1; j++)
+        {
+            boardEnemy[i][j%VYSKA_PLOCHY] = ' ';
+        }
+    }
+
+    // Display the snake head
+    boardEnemy[headEnemy.row][headEnemy.col] = 'X';
+//    mvprintw(head.row, head.col * 2, "O ");
+
+    // Display the snake body
+    for (const auto &policko : bodyEnemy)
+    {
+        boardEnemy[policko.row][policko.col] = 'O';
+//        mvprintw(segment.row, segment.col * 2, "o ");
+    }
+
+    //generateFruitEnemy();
+
+    // Display the board
+    for (int i = 0; i < SIRKA_PLOCHY; i++)
+    {
+        for (int j = VYSKA_PLOCHY + 1; j < VYSKA_PLOCHY * 2 + 1; j++)
+        {
+            if (i == 0 || i == SIRKA_PLOCHY - 1 || j == VYSKA_PLOCHY + 1 || j == VYSKA_PLOCHY * 2)
+            {
+                mvprintw(i, j * 2, "# ");
+            }
+            else
+            {
+                mvprintw(i, j * 2, "%c ", boardEnemy[i][j%VYSKA_PLOCHY]);
+            }
+        }
+    }
+
+    refresh();
+}
 void Snake::displayScore() {
     mvprintw(SIRKA_PLOCHY + 1, 0, "Aktualne skore: %d", score);
 }
@@ -582,4 +695,16 @@ void Snake::generateFruit() {
         } while (board[fruit.row][fruit.col] != ' '); // Ensure the fruit doesn't spawn on the snake
     }
     board[fruit.row][fruit.col] = 'F';  //write fruit on board
+}
+
+void Snake::generateFruitEnemy() {
+    // If there's no fruit on the board, generate and place a new one
+    if (fruitEnemy.row == 0 || fruitEnemy.col == 0) {
+        do {
+            // Generate random coordinates for the fruit within the game board
+            fruitEnemy.row = rand() % (SIRKA_PLOCHY - 2) + 1;
+            fruitEnemy.col = rand() % (VYSKA_PLOCHY - 2) + 1;
+        } while (boardEnemy[fruitEnemy.row][fruitEnemy.col] != ' '); // Ensure the fruit doesn't spawn on the snake
+    }
+    boardEnemy[fruitEnemy.row][fruitEnemy.col] = 'F';  //write fruit on board
 }
