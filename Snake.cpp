@@ -13,6 +13,9 @@
 #include <termios.h>
 #include <ctype.h>
 
+int vymaz = 0;
+int vymaz2 = 0;
+
 Snake::Snake(const char *hostname, int port) : hostname(hostname), port(port), koniec(false)
 {
     pthread_mutex_init(&mut, NULL);
@@ -226,7 +229,7 @@ void *Snake::userInput(void *data)
 
     while (true)
     {
-        if (read(STDIN_FILENO, &c, 1) > 0)
+        if (read(STDIN_FILENO, &c, 1) > 0)      //fyzicke cakanie ked user stlaci klavesu
         {
             c = tolower(c);
             buffer[0] = c;
@@ -286,7 +289,7 @@ void *Snake::userInput(void *data)
 
             bzero(buffer, MSG_LEN);
         }
-
+        /*
         pthread_mutex_lock(&client->mutColision);
         if (client->colision)
         {
@@ -294,7 +297,7 @@ void *Snake::userInput(void *data)
             break;
         }
         pthread_mutex_unlock(&client->mutColision);
-
+*/
         pthread_mutex_lock(&client->mut);
         if (client->koniec)
         {
@@ -307,14 +310,14 @@ void *Snake::userInput(void *data)
         // Update the previous direction for the next iteration
 
     }
-
+/*
     n = write(client->sockfd, buffer, MSG_LEN);
     if (n < 0)
     {
         perror("Error writing to socket\n");
         return NULL;
     }
-
+*/
     return NULL;
 }
 
@@ -386,15 +389,16 @@ void Snake::runSnake() {
         prevDirection = direction;
         pthread_mutex_unlock(&mutDirection);
 
-        usleep(1000 * 1000); // Adjust the delay based on your game speed
+        //usleep(1000 * 1000); // Adjust the delay based on your game speed
 
-//        pthread_mutex_lock(&mutMove);
-//        while (!gameIteration) {
-//            pthread_cond_wait(&conWait, &mutMove);
-//        }
-//        gameIteration = false;
-//        pthread_cond_signal(&conMove);
-//        pthread_mutex_unlock(&mutMove);
+        pthread_mutex_lock(&mutMove);       //pohyb
+        while (!gameIteration) {
+            pthread_cond_wait(&conWait, &mutMove);
+        }
+        //printf("MoveM %d\n", ++vymaz2);
+        gameIteration = false;
+        pthread_cond_signal(&conMove);
+        pthread_mutex_unlock(&mutMove);
 
     }
 
@@ -406,6 +410,7 @@ void Snake::runSnake() {
 
 void Snake::processServerResponse(char *buffer)
 {
+    int n;
     switch (buffer[2])
     {
         case 'w':
@@ -420,15 +425,37 @@ void Snake::processServerResponse(char *buffer)
     switch (buffer[1])
     {
         case 'E':
+            //printf("Dostal som E\n");
             pthread_mutex_lock(&mut);
             koniec = true;
             pthread_mutex_unlock(&mut);
+
+            //write server E
+//            buffer[1] = 'E';
+//            n = write(sockfd, buffer, MSG_LEN);     //poslanie
+//            if (n < 0) {
+//                perror("Error writing to socket\n");
+//                return;
+//            }
+            //sam sebe move
+            buffer[5] = 'M';
+//            pthread_mutex_lock(&mutMove);
+//            printf("SignalM bonus %d\n", ++vymaz);
+//            gameIteration = true;
+//            pthread_cond_signal(&conWait);
+//            pthread_mutex_unlock(&mutMove);
             break;
+            default:
+            break;
+    }
+    switch (buffer[5])
+    {
         case 'M':
             pthread_mutex_lock(&mutMove);
             while (gameIteration) {
                 pthread_cond_wait(&conMove, &mutMove);
             }
+            //printf("SignalM %d\n", ++vymaz);
             gameIteration = true;
             pthread_cond_signal(&conWait);
             pthread_mutex_unlock(&mutMove);
