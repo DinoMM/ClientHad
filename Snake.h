@@ -54,6 +54,8 @@ private:
     pthread_mutex_t mut;
     pthread_mutex_t mutDirection;
     pthread_mutex_t mutDirectionEnemy;
+    pthread_mutex_t mutFruitEnemy;
+    pthread_mutex_t mutEndEnemy;
     pthread_mutex_t mutColision;
     pthread_mutex_t mutMove;
     pthread_cond_t conWait;
@@ -83,6 +85,7 @@ private:
     std::vector<Policko> bodyEnemy;
     Policko fruitEnemy;
     char boardEnemy[SIRKA_PLOCHY][VYSKA_PLOCHY];
+    bool endEnemy;
 };
 
 #endif // SNAKE_H

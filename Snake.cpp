@@ -21,6 +21,8 @@ Snake::Snake(const char *hostname, int port) : hostname(hostname), port(port), k
     pthread_mutex_init(&mut, NULL);
     pthread_mutex_init(&mutDirection, NULL);
     pthread_mutex_init(&mutDirectionEnemy, NULL);
+    pthread_mutex_init(&mutFruitEnemy, NULL);
+    pthread_mutex_init(&mutEndEnemy, NULL);
     pthread_mutex_init(&mutColision, NULL);
     pthread_mutex_init(&mutMove, NULL);
     pthread_cond_init(&conMove, NULL);
@@ -46,6 +48,7 @@ Snake::Snake(const char *hostname, int port) : hostname(hostname), port(port), k
     headEnemy.row = 5;
     fruitEnemy.col = 0;
     fruitEnemy.row = 0;
+    endEnemy = false;
     for (int i = 0; i < 4; ++i) //ini tela nepriatela
     {
         Policko polickoEnemy;
@@ -93,6 +96,8 @@ Snake::~Snake()
     pthread_mutex_destroy(&mutColision);
     pthread_mutex_destroy(&mutDirection);
     pthread_mutex_destroy(&mutDirectionEnemy);
+    pthread_mutex_destroy(&mutEndEnemy);
+    pthread_mutex_destroy(&mutFruitEnemy);
     pthread_mutex_destroy(&mutMove);
     pthread_cond_destroy(&conMove);
     close(sockfd);
@@ -100,6 +105,7 @@ Snake::~Snake()
 
 void Snake::run()
 {
+    printf("Počkaj až sa pripojí druhý hráč.\n");
     char buffer[MSG_LEN];
     bzero(buffer, MSG_LEN);
     while (true) {
@@ -113,6 +119,7 @@ void Snake::run()
             break;
         }
     }
+    srand(time(NULL) ^ port);
 
     startNonstopKeyStream();
 
@@ -373,21 +380,42 @@ void Snake::runSnake() {
 
     while (true) {
         moveSnake();        //logicky pohyb hada
-        moveSnakeEnemy();
+        pthread_mutex_lock(&mutEndEnemy);
+        if (!endEnemy) {
+            moveSnakeEnemy();
+        }
+        pthread_mutex_unlock(&mutEndEnemy);
 
+
+        //Doplnenie tela po zjdeni ovocia aktualnemu hracovi
         if (head.row == fruit.row && head.col == fruit.col) {       //kontrola zjedenia jedla
             fruit.row = 0;
             fruit.col = 0;
             score++;
 
-            Policko newSegment;
+            Policko newPolicko;
             Policko & last = body[body.size() - 1];
             Policko & preLast = body[body.size() - 2];
 
-            newSegment.row = last.row + (last.row - preLast.row);
-            newSegment.col = last.col + (last.col - preLast.col);
+            newPolicko.row = last.row + (last.row - preLast.row);
+            newPolicko.col = last.col + (last.col - preLast.col);
 
-            body.push_back(newSegment);
+            body.push_back(newPolicko);
+        }
+
+        //Doplnenie tela po zjdeni ovocia enemy hracovi
+        if (headEnemy.row == fruitEnemy.row && headEnemy.col == fruitEnemy.col) {       //kontrola zjedenia jedla
+            fruitEnemy.row = 0;
+            fruitEnemy.col = 0;
+
+            Policko newPolickoEnemy;
+            Policko & last = bodyEnemy[bodyEnemy.size() - 1];
+            Policko & preLast = bodyEnemy[bodyEnemy.size() - 2];
+
+            newPolickoEnemy.row = last.row + (last.row - preLast.row);
+            newPolickoEnemy.col = last.col + (last.col - preLast.col);
+
+            bodyEnemy.push_back(newPolickoEnemy);
         }
 
         displaySnake();     //zobrazenie na terminaly aktualny hrac
@@ -440,6 +468,11 @@ void Snake::processServerResponse(char *buffer)
             directionEnemy = buffer[2];
             pthread_mutex_unlock(&mutDirectionEnemy);
             break;
+        case 'X':
+            pthread_mutex_lock(&mutEndEnemy);
+            endEnemy = true;
+            pthread_mutex_unlock(&mutEndEnemy);
+
         default:
             break;
     }
@@ -484,6 +517,17 @@ void Snake::processServerResponse(char *buffer)
             break;
         default:
             break;
+    }
+    switch (buffer[6])
+    {
+        case 'F':
+            pthread_mutex_lock(&mutFruitEnemy);
+            fruitEnemy.row = (int)buffer[7] - '0';
+            fruitEnemy.col = (int)buffer[8] - '0';
+            pthread_mutex_unlock(&mutFruitEnemy);
+            break;
+
+        default: break;
     }
 }
 
@@ -698,17 +742,23 @@ void Snake::generateFruit() {
             fruit.col = rand() % (VYSKA_PLOCHY - 2) + 1;
         } while (board[fruit.row][fruit.col] != ' '); // Zabezpecujeme aby ovocie nebolo na policku kde je had
     }
+    char msg[MSG_LEN];
+    bzero(msg, MSG_LEN);
+    msg[6] = 'F';
+    msg[7] = fruit.row + '0';
+    msg[8] = fruit.col + '0';
+    int n = write(sockfd, msg, MSG_LEN);     //poslanie
+    if (n < 0) {
+        perror("Error writing to socket\n");
+        return;
+    }
     board[fruit.row][fruit.col] = 'F';  //nakreslit ovocie na boardu
 }
 
 void Snake::generateFruitEnemy() {
     // Ak sa nenachadza ziadne ovocie na boarde tak generujeme
-    if (fruitEnemy.row == 0 || fruitEnemy.col == 0) {
-        do {
-            // random pozicia
-            fruitEnemy.row = rand() % (SIRKA_PLOCHY - 2) + 1;
-            fruitEnemy.col = rand() % (VYSKA_PLOCHY - 2) + 1;
-        } while (boardEnemy[fruitEnemy.row][fruitEnemy.col] != ' ');// Zabezpecujeme aby ovocie nebolo na policku kde je had
-    }
+    pthread_mutex_lock(&mutFruitEnemy);
     boardEnemy[fruitEnemy.row][fruitEnemy.col + 1] = 'F';
+    pthread_mutex_unlock(&mutFruitEnemy);
+
 }
